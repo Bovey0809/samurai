@@ -1,0 +1,25 @@
+{
+    "name": "SAM2 Development",
+    "build": {
+        "dockerfile": "Dockerfile",
+        "context": ".."
+    },
+    "runArgs": [
+        "--gpus=all"
+    ],
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-python.vscode-pylance",
+                "ms-toolsai.jupyter",
+                "ms-azuretools.vscode-docker",
+                "njpwerner.autodocstring",
+                "visualstudioexptteam.vscodeintellicode",
+                "github.copilot"
+            ]
+        }
+    },
+    "remoteUser": "root",
+    "postCreateCommand": "cd sam2 && pip install -e .[notebooks]"
+}

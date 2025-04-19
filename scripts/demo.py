@@ -66,7 +66,13 @@ def main(args):
             if len(loaded_frames) == 0:
                 raise ValueError("No frames were loaded from the video.")
 
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    # Use H.264 codec instead of mp4v
+    if cv2.cuda.getCudaEnabledDeviceCount() > 0:
+        # GPU acceleration available
+        fourcc = cv2.VideoWriter_fourcc(*'avc1')  # H.264 codec
+    else:
+        # Fallback to standard H.264
+        fourcc = cv2.VideoWriter_fourcc(*'H264')
     out = cv2.VideoWriter(args.video_output_path, fourcc, frame_rate, (width, height))
 
     with torch.inference_mode(), torch.autocast("cuda", dtype=torch.float16):
