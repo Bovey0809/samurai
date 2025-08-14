@@ -395,6 +395,9 @@
                 canvas.width = img.width;
                 canvas.height = img.height;
                 
+                // Store the frame URL for later use
+                canvas.setAttribute('data-src', frameUrl);
+                
                 // Draw image
                 ctx.drawImage(img, 0, 0);
                 
@@ -434,7 +437,8 @@
                 ctx.setLineDash([5, 5]);
                 ctx.strokeRect(startX, startY, currentX - startX, currentY - startY);
             };
-            img.src = document.getElementById('selectionCanvas').src;
+            // Use the original frame URL instead of canvas.src
+            img.src = document.getElementById('selectionCanvas').getAttribute('data-src') || '';
         }
 
         function endDrawing(e) {
@@ -471,7 +475,8 @@
                 ctx.setLineDash([]);
                 ctx.strokeRect(x, y, width, height);
             };
-            img.src = canvas.src;
+            // Use the original frame URL instead of canvas.src
+            img.src = document.getElementById('selectionCanvas').getAttribute('data-src') || '';
         }
 
         // Tracking functionality
