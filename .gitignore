@@ -167,3 +167,49 @@ demo/
 demo.mp4
 demo.txt
 output.mp4
+
+# SAMURAI Demo specific files
+test_results/
+test_video.mp4
+*.mp4
+*.avi
+*.mov
+*.mkv
+
+# Generated output files
+tracking_results.csv
+tracking_results.json
+summary.txt
+samurai_tracking.mp4
+
+# Temporary files
+*.tmp
+*.temp
+temp/
+tmp/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Log files
+*.log
+logs/
+
+# Checkpoint files (large model files)
+*.pt
+*.pth
+*.ckpt
+checkpoints/
+
+# Frame extraction directories
+frames/
+extracted_frames/
