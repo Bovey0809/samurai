@@ -35,15 +35,31 @@ def allowed_file(filename):
 
 def extract_first_frame(video_path):
     """Extract the first frame from a video for object selection"""
+    print(f"Extracting frame from: {video_path}")
+    
     cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        print(f"Failed to open video: {video_path}")
+        return None, None
+    
     ret, frame = cap.read()
     cap.release()
     
     if ret:
-        # Save first frame for display
-        frame_path = video_path.replace('.mp4', '_first_frame.jpg')
-        cv2.imwrite(frame_path, frame)
+        # Save first frame for display - use proper path construction
+        base_path = os.path.splitext(video_path)[0]  # Remove any extension
+        frame_path = f"{base_path}_first_frame.jpg"
+        print(f"Saving frame to: {frame_path}")
+        
+        success = cv2.imwrite(frame_path, frame)
+        if not success:
+            print(f"Failed to save frame to: {frame_path}")
+            return None, None
+            
+        print(f"Frame saved successfully: {frame_path}, shape: {frame.shape[:2]}")
         return frame_path, frame.shape[:2]  # Return path and dimensions
+    
+    print("Failed to read frame from video")
     return None, None
 
 @app.route('/')
@@ -74,9 +90,13 @@ def upload_video():
     file.save(video_path)
     
     # Extract first frame
-    frame_path, dimensions = extract_first_frame(video_path)
-    if frame_path is None:
-        return jsonify({'error': 'Could not extract frame from video'}), 400
+    try:
+        frame_path, dimensions = extract_first_frame(video_path)
+        if frame_path is None:
+            return jsonify({'error': 'Could not extract frame from video'}), 400
+    except Exception as e:
+        print(f"Error extracting frame: {e}")
+        return jsonify({'error': f'Frame extraction failed: {str(e)}'}), 500
     
     # Copy frame to static folder for web display
     static_frame_path = os.path.join('static', f'{session_id}_first_frame.jpg')
