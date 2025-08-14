@@ -147,9 +147,12 @@ def track_object():
             initial_bbox=tuple(bbox)
         )
         
-        # Generate result URLs
+        # Generate result URLs - check for different video formats
         result_video_path = os.path.join(app.config['RESULTS_FOLDER'], session_id, 'samurai_tracking.mp4')
-        static_video_path = os.path.join('static', f'{session_id}_result.mp4')
+        if not os.path.exists(result_video_path):
+            result_video_path = os.path.join(app.config['RESULTS_FOLDER'], session_id, 'samurai_tracking.avi')
+        
+        static_video_path = os.path.join('static', f'{session_id}_result{os.path.splitext(result_video_path)[1]}')
         
         print(f"📁 Copying result from {result_video_path} to {static_video_path}")
         shutil.copy2(result_video_path, static_video_path)
@@ -172,16 +175,20 @@ def track_object():
 def check_result(session_id):
     """Check if tracking result exists for a session"""
     result_video_path = os.path.join(app.config['RESULTS_FOLDER'], session_id, 'samurai_tracking.mp4')
-    static_video_path = os.path.join('static', f'{session_id}_result.mp4')
+    if not os.path.exists(result_video_path):
+        result_video_path = os.path.join(app.config['RESULTS_FOLDER'], session_id, 'samurai_tracking.avi')
     
     if os.path.exists(result_video_path):
         # Copy to static if not already there
+        video_ext = os.path.splitext(result_video_path)[1]
+        static_video_path = os.path.join('static', f'{session_id}_result{video_ext}')
+        
         if not os.path.exists(static_video_path):
             shutil.copy2(result_video_path, static_video_path)
         
         return jsonify({
             'success': True,
-            'result_video_url': url_for('static', filename=f'{session_id}_result.mp4'),
+            'result_video_url': url_for('static', filename=f'{session_id}_result{video_ext}'),
             'message': 'Tracking result found'
         })
     else:

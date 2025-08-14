@@ -170,8 +170,19 @@ class SAMURAIDemo:
         height, width = first_frame.shape[:2]
         
         # Use H.264 codec for better compatibility
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        fourcc = cv2.VideoWriter_fourcc(*'avc1')  # H.264 codec
         video_writer = cv2.VideoWriter(output_video_path, fourcc, fps, (width, height))
+        
+        if not video_writer.isOpened():
+            print(f"❌ Failed to open video writer. Trying alternative codec...")
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+            video_writer = cv2.VideoWriter(output_video_path, fourcc, fps, (width, height))
+            
+            if not video_writer.isOpened():
+                print(f"❌ Failed to open video writer with mp4v codec. Trying XVID...")
+                output_video_path = output_video_path.replace('.mp4', '.avi')
+                fourcc = cv2.VideoWriter_fourcc(*'XVID')
+                video_writer = cv2.VideoWriter(output_video_path, fourcc, fps, (width, height))
         
         # Initialize tracking results
         tracking_results = []
@@ -279,7 +290,11 @@ class SAMURAIDemo:
                     video_writer.write(img)
         
         # Clean up
-        video_writer.release()
+        if video_writer.isOpened():
+            video_writer.release()
+            print(f"✅ Video writer closed successfully")
+        else:
+            print(f"❌ Video writer was not opened properly")
         
         # Save tracking results
         self.save_results(tracking_results, output_dir, fps)
