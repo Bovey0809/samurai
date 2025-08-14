@@ -525,7 +525,22 @@
                 }
             } catch (error) {
                 clearInterval(progressInterval);
-                showError('Tracking failed: ' + error.message);
+                console.log('Tracking request failed, checking if result exists...');
+                
+                // Try to check if result already exists
+                try {
+                    const checkResponse = await fetch(`/check_result/${currentSession}`);
+                    const checkData = await checkResponse.json();
+                    
+                    if (checkData.success) {
+                        document.getElementById('progressBar').style.width = '100%';
+                        showResults(checkData.result_video_url, { summary: 'Tracking completed successfully' });
+                    } else {
+                        showError('Tracking failed: ' + error.message);
+                    }
+                } catch (checkError) {
+                    showError('Tracking failed: ' + error.message);
+                }
             } finally {
                 trackBtn.disabled = false;
                 progress.style.display = 'none';
