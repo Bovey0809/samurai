@@ -213,3 +213,10 @@ checkpoints/
 # Frame extraction directories
 frames/
 extracted_frames/
+
+# Web Demo files
+uploads/
+results/
+static/
+templates/
+*.session

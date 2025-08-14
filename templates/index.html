@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SAMURAI - Single Object Tracking Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .step {
+            margin-bottom: 40px;
+            padding: 30px;
+            border: 2px solid #ecf0f1;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .step:hover {
+            border-color: #3498db;
+            box-shadow: 0 5px 15px rgba(52, 152, 219, 0.2);
+        }
+
+        .step h2 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            display: flex;
+            align-items: center;
+        }
+
+        .step-number {
+            background: #3498db;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 15px;
+            font-weight: bold;
+        }
+
+        .upload-area {
+            border: 3px dashed #bdc3c7;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #f8f9fa;
+        }
+
+        .upload-area:hover {
+            border-color: #3498db;
+            background: #ecf0f1;
+        }
+
+        .upload-area.dragover {
+            border-color: #27ae60;
+            background: #d5f4e6;
+        }
+
+        .upload-icon {
+            font-size: 3em;
+            color: #7f8c8d;
+            margin-bottom: 20px;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(52, 152, 219, 0.4);
+        }
+
+        .btn:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+        }
+
+        .btn-success:hover {
+            box-shadow: 0 5px 15px rgba(39, 174, 96, 0.4);
+        }
+
+        .canvas-container {
+            position: relative;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        #selectionCanvas {
+            border: 2px solid #3498db;
+            border-radius: 8px;
+            max-width: 100%;
+            cursor: crosshair;
+        }
+
+        .instructions {
+            background: #e8f4fd;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 0 5px 5px 0;
+        }
+
+        .progress {
+            background: #ecf0f1;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .progress-bar {
+            background: linear-gradient(90deg, #3498db, #2980b9);
+            height: 20px;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .result-container {
+            display: none;
+            margin-top: 30px;
+        }
+
+        .video-container {
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .video-container video {
+            max-width: 100%;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .error {
+            background: #fdf2f2;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .bbox-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🗡️ SAMURAI</h1>
+            <p>Single Object Tracking with SAM2</p>
+        </div>
+
+        <div class="content">
+            <!-- Step 1: Upload Video -->
+            <div class="step" id="step1">
+                <h2><span class="step-number">1</span>Upload Video</h2>
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-icon">📹</div>
+                    <p><strong>Click to upload</strong> or drag and drop your video file</p>
+                    <p style="color: #7f8c8d; margin-top: 10px;">Supported formats: MP4, AVI, MOV, MKV, WEBM (max 100MB)</p>
+                    <input type="file" id="videoInput" class="file-input" accept="video/*">
+                </div>
+                <button class="btn" id="uploadBtn" style="display: none;">Upload Video</button>
+            </div>
+
+            <!-- Step 2: Select Object -->
+            <div class="step" id="step2" style="display: none;">
+                <h2><span class="step-number">2</span>Select Object to Track</h2>
+                <div class="instructions">
+                    <p><strong>Instructions:</strong> Click and drag on the first frame to select the object you want to track. 
+                    Draw a rectangle around the target object.</p>
+                </div>
+                <div class="canvas-container">
+                    <canvas id="selectionCanvas"></canvas>
+                </div>
+                <div class="bbox-info" id="bboxInfo" style="display: none;">
+                    <strong>Selected Bounding Box:</strong> <span id="bboxText"></span>
+                </div>
+                <button class="btn btn-success" id="trackBtn" disabled>Start Tracking</button>
+            </div>
+
+            <!-- Progress -->
+            <div class="progress" id="progress">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+
+            <!-- Loading -->
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Processing video... This may take a few minutes.</p>
+            </div>
+
+            <!-- Results -->
+            <div class="result-container" id="resultContainer">
+                <h2><span class="step-number">3</span>Tracking Results</h2>
+                <div class="video-container">
+                    <video id="resultVideo" controls>
+                        Your browser does not support the video tag.
+                    </video>
+                </div>
+                <div class="bbox-info" id="trackingInfo">
+                    <strong>Tracking Summary:</strong> <span id="trackingSummary"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentSession = null;
+        let isDrawing = false;
+        let startX, startY;
+        let selectedBbox = null;
+
+        // Upload functionality
+        const uploadArea = document.getElementById('uploadArea');
+        const videoInput = document.getElementById('videoInput');
+        const uploadBtn = document.getElementById('uploadBtn');
+
+        uploadArea.addEventListener('click', () => videoInput.click());
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                videoInput.files = files;
+                handleFileSelect();
+            }
+        });
+
+        videoInput.addEventListener('change', handleFileSelect);
+
+        function handleFileSelect() {
+            const file = videoInput.files[0];
+            if (file) {
+                uploadBtn.style.display = 'inline-block';
+                uploadBtn.textContent = `Upload ${file.name}`;
+            }
+        }
+
+        uploadBtn.addEventListener('click', uploadVideo);
+
+        async function uploadVideo() {
+            const file = videoInput.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('video', file);
+
+            uploadBtn.disabled = true;
+            uploadBtn.textContent = 'Uploading...';
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    currentSession = data.session_id;
+                    showStep2(data.frame_url, data.dimensions);
+                } else {
+                    showError(data.error);
+                }
+            } catch (error) {
+                showError('Upload failed: ' + error.message);
+            } finally {
+                uploadBtn.disabled = false;
+                uploadBtn.textContent = 'Upload Video';
+            }
+        }
+
+        function showStep2(frameUrl, dimensions) {
+            document.getElementById('step1').style.display = 'none';
+            document.getElementById('step2').style.display = 'block';
+
+            const canvas = document.getElementById('selectionCanvas');
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+
+            img.onload = function() {
+                // Set canvas size to match image
+                canvas.width = img.width;
+                canvas.height = img.height;
+                
+                // Draw image
+                ctx.drawImage(img, 0, 0);
+                
+                // Add event listeners for drawing
+                canvas.addEventListener('mousedown', startDrawing);
+                canvas.addEventListener('mousemove', draw);
+                canvas.addEventListener('mouseup', endDrawing);
+            };
+
+            img.src = frameUrl;
+        }
+
+        function startDrawing(e) {
+            isDrawing = true;
+            const rect = e.target.getBoundingClientRect();
+            startX = e.clientX - rect.left;
+            startY = e.clientY - rect.top;
+        }
+
+        function draw(e) {
+            if (!isDrawing) return;
+
+            const canvas = e.target;
+            const ctx = canvas.getContext('2d');
+            const rect = canvas.getBoundingClientRect();
+            const currentX = e.clientX - rect.left;
+            const currentY = e.clientY - rect.top;
+
+            // Redraw image
+            const img = new Image();
+            img.onload = function() {
+                ctx.drawImage(img, 0, 0);
+                
+                // Draw rectangle
+                ctx.strokeStyle = '#3498db';
+                ctx.lineWidth = 3;
+                ctx.setLineDash([5, 5]);
+                ctx.strokeRect(startX, startY, currentX - startX, currentY - startY);
+            };
+            img.src = document.getElementById('selectionCanvas').src;
+        }
+
+        function endDrawing(e) {
+            if (!isDrawing) return;
+            isDrawing = false;
+
+            const canvas = e.target;
+            const rect = canvas.getBoundingClientRect();
+            const endX = e.clientX - rect.left;
+            const endY = e.clientY - rect.top;
+
+            // Calculate bounding box
+            const x = Math.min(startX, endX);
+            const y = Math.min(startY, endY);
+            const width = Math.abs(endX - startX);
+            const height = Math.abs(endY - startY);
+
+            selectedBbox = [x, y, width, height];
+
+            // Display bbox info
+            document.getElementById('bboxInfo').style.display = 'block';
+            document.getElementById('bboxText').textContent = `[${Math.round(x)}, ${Math.round(y)}, ${Math.round(width)}, ${Math.round(height)}]`;
+
+            // Enable track button
+            document.getElementById('trackBtn').disabled = false;
+
+            // Draw final rectangle
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+            img.onload = function() {
+                ctx.drawImage(img, 0, 0);
+                ctx.strokeStyle = '#27ae60';
+                ctx.lineWidth = 3;
+                ctx.setLineDash([]);
+                ctx.strokeRect(x, y, width, height);
+            };
+            img.src = canvas.src;
+        }
+
+        // Tracking functionality
+        document.getElementById('trackBtn').addEventListener('click', startTracking);
+
+        async function startTracking() {
+            if (!selectedBbox || !currentSession) return;
+
+            const trackBtn = document.getElementById('trackBtn');
+            const progress = document.getElementById('progress');
+            const loading = document.getElementById('loading');
+
+            trackBtn.disabled = true;
+            progress.style.display = 'block';
+            loading.style.display = 'block';
+
+            // Simulate progress
+            let progressValue = 0;
+            const progressInterval = setInterval(() => {
+                progressValue += Math.random() * 10;
+                if (progressValue > 90) progressValue = 90;
+                document.getElementById('progressBar').style.width = progressValue + '%';
+            }, 500);
+
+            try {
+                const response = await fetch('/track', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        session_id: currentSession,
+                        bbox: selectedBbox
+                    })
+                });
+
+                const data = await response.json();
+
+                clearInterval(progressInterval);
+                document.getElementById('progressBar').style.width = '100%';
+
+                if (response.ok) {
+                    showResults(data.result_video_url, data.tracking_data);
+                } else {
+                    showError(data.error);
+                }
+            } catch (error) {
+                clearInterval(progressInterval);
+                showError('Tracking failed: ' + error.message);
+            } finally {
+                trackBtn.disabled = false;
+                progress.style.display = 'none';
+                loading.style.display = 'none';
+            }
+        }
+
+        function showResults(videoUrl, trackingData) {
+            const resultContainer = document.getElementById('resultContainer');
+            const resultVideo = document.getElementById('resultVideo');
+            const trackingSummary = document.getElementById('trackingSummary');
+
+            resultVideo.src = videoUrl;
+            resultContainer.style.display = 'block';
+
+            // Display tracking summary
+            if (trackingData && trackingData.summary) {
+                trackingSummary.textContent = trackingData.summary;
+            }
+
+            // Scroll to results
+            resultContainer.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function showError(message) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error';
+            errorDiv.textContent = message;
+            
+            const content = document.querySelector('.content');
+            content.insertBefore(errorDiv, content.firstChild);
+
+            setTimeout(() => {
+                errorDiv.remove();
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
