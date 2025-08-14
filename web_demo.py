@@ -132,10 +132,15 @@ def track_object():
         return jsonify({'error': 'Video file not found'}), 400
     
     try:
+        print(f"🎯 Starting tracking for session: {session_id}")
+        print(f"📹 Video path: {video_path}")
+        print(f"🎯 Bounding box: {bbox}")
+        
         # Initialize SAMURAI demo
         demo = SAMURAIDemo()
         
         # Run tracking
+        print("🚀 Running SAMURAI tracking...")
         results = demo.process_video(
             video_path=video_path,
             output_dir=os.path.join(app.config['RESULTS_FOLDER'], session_id),
@@ -145,7 +150,11 @@ def track_object():
         # Generate result URLs
         result_video_path = os.path.join(app.config['RESULTS_FOLDER'], session_id, 'samurai_tracking.mp4')
         static_video_path = os.path.join('static', f'{session_id}_result.mp4')
+        
+        print(f"📁 Copying result from {result_video_path} to {static_video_path}")
         shutil.copy2(result_video_path, static_video_path)
+        
+        print(f"✅ Tracking completed successfully for session: {session_id}")
         
         return jsonify({
             'success': True,
@@ -154,7 +163,32 @@ def track_object():
         })
         
     except Exception as e:
+        print(f"❌ Tracking failed for session {session_id}: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': f'Tracking failed: {str(e)}'}), 500
+
+@app.route('/check_result/<session_id>')
+def check_result(session_id):
+    """Check if tracking result exists for a session"""
+    result_video_path = os.path.join(app.config['RESULTS_FOLDER'], session_id, 'samurai_tracking.mp4')
+    static_video_path = os.path.join('static', f'{session_id}_result.mp4')
+    
+    if os.path.exists(result_video_path):
+        # Copy to static if not already there
+        if not os.path.exists(static_video_path):
+            shutil.copy2(result_video_path, static_video_path)
+        
+        return jsonify({
+            'success': True,
+            'result_video_url': url_for('static', filename=f'{session_id}_result.mp4'),
+            'message': 'Tracking result found'
+        })
+    else:
+        return jsonify({
+            'success': False,
+            'message': 'Tracking result not found'
+        })
 
 @app.route('/static/<filename>')
 def static_files(filename):
@@ -162,4 +196,4 @@ def static_files(filename):
     return send_file(os.path.join('static', filename))
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=5000, threaded=True)
