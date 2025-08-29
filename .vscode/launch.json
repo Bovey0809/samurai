@@ -17,13 +17,14 @@
             "request": "launch",
             "program": "scripts/demo.py",
             "console": "integratedTerminal",
+            "justMyCode": false,
             "args": [
                 "--video_path",
-                "assets/samurai_demo.mp4",
+                "Feishu20250829-174910.mp4",
                 "--txt_path",
                 "demo.txt",
                 "--model_path",
-                "/opt/sam2/checkpoints/sam2.1_hiera_large.pt"
+                "sam2.1_hiera_large.pt"
             ],
             "env": {
                 "HYDRA_FULL_ERROR": "1"

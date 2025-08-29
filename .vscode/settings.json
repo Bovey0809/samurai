@@ -1,5 +1,9 @@
 {
     "python.analysis.extraPaths": [
         "./sam2"
-    ]
+    ],
+    "cursorpyright.analysis.extraPaths": [
+        "./sam2"
+    ],
+    "git.ignoreLimitWarning": true
 }
