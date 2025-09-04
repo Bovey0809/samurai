@@ -5,3 +5,5 @@ tqdm
 pillow
 numpy
 matplotlib
+loguru
+scipy
