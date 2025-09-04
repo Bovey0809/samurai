@@ -50,16 +50,42 @@ class SAM2VideoPredictor(SAM2Base):
     ):
         """Initialize an inference state."""
         compute_device = self.device  # device of the model
-        images, video_height, video_width = load_video_frames(
+        # Use streaming mode for long videos to prevent OOM
+        streaming_mode = True  # Enable streaming to handle any-length videos
+        result = load_video_frames(
             video_path=video_path,
             image_size=self.image_size,
             offload_video_to_cpu=offload_video_to_cpu,
             async_loading_frames=async_loading_frames,
             compute_device=compute_device,
+            streaming=streaming_mode,
         )
+        
+        if streaming_mode:
+            # Streaming mode: result is (chunk_generator, video_height, video_width, total_frames)
+            chunk_generator, video_height, video_width, total_frames = result
+            # Load the first chunk to initialize
+            first_chunk = None
+            for chunk, start, end in chunk_generator:
+                first_chunk = chunk
+                break
+            if first_chunk is None:
+                raise RuntimeError("No frames could be loaded from video")
+            images = first_chunk
+        else:
+            # Non-streaming mode: result is (images, video_height, video_width)
+            images, video_height, video_width = result
+            total_frames = len(images)
         inference_state = {}
         inference_state["images"] = images
-        inference_state["num_frames"] = len(images)
+        inference_state["num_frames"] = total_frames if streaming_mode else len(images)
+        if streaming_mode:
+            inference_state["chunk_generator"] = chunk_generator
+            inference_state["streaming_mode"] = True
+            inference_state["current_chunk"] = 0
+            inference_state["chunk_start_idx"] = 0
+            # Store the first chunk data for immediate access
+            inference_state["current_chunk_data"] = images
         # whether to offload the video frames to CPU memory
         # turning on this option saves the GPU memory with only a very small overhead
         inference_state["offload_video_to_cpu"] = offload_video_to_cpu
@@ -885,7 +911,16 @@ class SAM2VideoPredictor(SAM2Base):
         if backbone_out is None:
             # Cache miss -- we will run inference on a single image
             device = inference_state["device"]
-            image = inference_state["images"][frame_idx].to(device).float().unsqueeze(0)
+            
+            # Handle streaming mode - load frame on-demand
+            if inference_state.get("streaming_mode", False):
+                # Load the specific frame from the chunk generator
+                frame = self._load_frame_from_streaming(inference_state, frame_idx)
+                image = frame.to(device).float().unsqueeze(0)
+            else:
+                # Non-streaming mode - access pre-loaded frames
+                image = inference_state["images"][frame_idx].to(device).float().unsqueeze(0)
+            
             backbone_out = self.forward_image(image)
             # Cache the most recent frame's feature (for repeated interactions with
             # a frame; we can use an LRU cache for more frames in the future).
@@ -908,6 +943,34 @@ class SAM2VideoPredictor(SAM2Base):
         features = self._prepare_backbone_features(expanded_backbone_out)
         features = (expanded_image,) + features
         return features
+
+    def _load_frame_from_streaming(self, inference_state, frame_idx):
+        """Load a specific frame from the streaming chunk generator."""
+        chunk_generator = inference_state["chunk_generator"]
+        current_chunk = inference_state.get("current_chunk", 0)
+        chunk_start_idx = inference_state.get("chunk_start_idx", 0)
+        
+        # Check if we need to load the next chunk
+        if frame_idx >= chunk_start_idx + 1000:  # Assuming chunk_size=1000
+            # Load next chunk
+            try:
+                chunk, start, end = next(chunk_generator)
+                inference_state["current_chunk"] = current_chunk + 1
+                inference_state["chunk_start_idx"] = start
+                inference_state["current_chunk_data"] = chunk
+                # Clear previous chunk from memory
+                if "current_chunk_data" in inference_state:
+                    del inference_state["current_chunk_data"]
+                inference_state["current_chunk_data"] = chunk
+            except StopIteration:
+                raise RuntimeError(f"Frame {frame_idx} is beyond available chunks")
+        
+        # Calculate frame index within current chunk
+        frame_in_chunk = frame_idx - inference_state["chunk_start_idx"]
+        if frame_in_chunk < 0 or frame_in_chunk >= inference_state["current_chunk_data"].shape[0]:
+            raise RuntimeError(f"Frame {frame_idx} not found in current chunk")
+        
+        return inference_state["current_chunk_data"][frame_in_chunk]
 
     def _run_single_frame_inference(
         self,

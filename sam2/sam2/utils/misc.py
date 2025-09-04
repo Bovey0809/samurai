@@ -177,10 +177,14 @@ def load_video_frames(
     img_std=(0.229, 0.224, 0.225),
     async_loading_frames=False,
     compute_device=torch.device("cuda"),
+    streaming=False,  # New parameter for streaming mode
 ):
     """
     Load the video frames from video_path. The frames are resized to image_size as in
     the model and are loaded to GPU if offload_video_to_cpu=False. This is used by the demo.
+    
+    Args:
+        streaming: If True, returns a generator for streaming processing (prevents OOM for long videos)
     """
     is_bytes = isinstance(video_path, bytes)
     is_str = isinstance(video_path, str)
@@ -193,6 +197,7 @@ def load_video_frames(
             img_mean=img_mean,
             img_std=img_std,
             compute_device=compute_device,
+            streaming=streaming,
         )
     elif is_str and os.path.isdir(video_path):
         return load_video_frames_from_jpg_images(
@@ -284,29 +289,99 @@ def load_video_frames_from_video_file(
     img_mean=(0.485, 0.456, 0.406),
     img_std=(0.229, 0.224, 0.225),
     compute_device=torch.device("cuda"),
+    chunk_size=1000,  # Process 1000 frames at a time
+    streaming=False,
 ):
     """Load the video frames from a video file."""
     import decord
 
     img_mean = torch.tensor(img_mean, dtype=torch.float32)[:, None, None]
     img_std = torch.tensor(img_std, dtype=torch.float32)[:, None, None]
+
     # Get the original video height and width
     decord.bridge.set_bridge("torch")
     video_height, video_width, _ = decord.VideoReader(video_path).next().shape
-    # Iterate over all frames in the video
-    images = []
-    for frame in decord.VideoReader(video_path, width=image_size, height=image_size):
-        images.append(frame.permute(2, 0, 1))
 
-    images = torch.stack(images, dim=0).float() / 255.0
-    if not offload_video_to_cpu:
-        images = images.to(compute_device)
-        img_mean = img_mean.to(compute_device)
-        img_std = img_std.to(compute_device)
-    # normalize by mean and std
-    images -= img_mean
-    images /= img_std
-    return images, video_height, video_width
+    # Get total frame count - REMOVED 300 frame limit
+    video_reader = decord.VideoReader(video_path, width=image_size, height=image_size)
+    total_frames = len(video_reader)
+
+    print(f"Processing {total_frames} frames in chunks of {chunk_size}")
+
+    if streaming:
+        # Streaming mode: yield chunks one at a time
+        def chunk_generator():
+            for start_idx in range(0, total_frames, chunk_size):
+                end_idx = min(start_idx + chunk_size, total_frames)
+                print(f"Processing frames {start_idx} to {end_idx-1}")
+
+                # Load chunk of frames
+                chunk_frames = []
+                for i in range(start_idx, end_idx):
+                    frame = video_reader[i]
+                    chunk_frames.append(frame.permute(2, 0, 1))
+
+                # Stack chunk
+                chunk_tensor = torch.stack(chunk_frames, dim=0).float() / 255.0
+                
+                # Normalize chunk
+                chunk_tensor -= img_mean
+                chunk_tensor /= img_std
+                
+                # Move to device if needed
+                if not offload_video_to_cpu:
+                    chunk_tensor = chunk_tensor.to(compute_device)
+                
+                yield chunk_tensor, start_idx, end_idx
+                
+                # Clear chunk from memory
+                del chunk_frames, chunk_tensor
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+        
+        return chunk_generator(), video_height, video_width, total_frames
+    else:
+        # Original mode: process all chunks and concatenate (may cause OOM for long videos)
+        # Process frames in chunks
+        all_chunks = []
+
+        for start_idx in range(0, total_frames, chunk_size):
+            end_idx = min(start_idx + chunk_size, total_frames)
+            print(f"Processing frames {start_idx} to {end_idx-1}")
+
+            # Load chunk of frames
+            chunk_frames = []
+            for i in range(start_idx, end_idx):
+                frame = video_reader[i]
+                chunk_frames.append(frame.permute(2, 0, 1))
+
+            # Stack chunk
+            chunk_tensor = torch.stack(chunk_frames, dim=0).float() / 255.0
+            all_chunks.append(chunk_tensor)
+
+            # Clear chunk from memory
+            del chunk_frames, chunk_tensor
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+
+        # Concatenate all chunks - FIXED to use all chunks, not just first
+        print("Concatenating chunks...")
+        if len(all_chunks) == 1:
+            images = all_chunks[0]
+        else:
+            images = torch.cat(all_chunks, dim=0)
+
+        # Move to device if needed
+        if not offload_video_to_cpu:
+            images = images.to(compute_device)
+            img_mean = img_mean.to(compute_device)
+            img_std = img_mean.to(compute_device)
+        
+        # Normalize by mean and std
+        images -= img_mean
+        images /= img_std
+        
+        return images, video_height, video_width
 
 
 def fill_holes_in_mask_scores(mask, max_area):
