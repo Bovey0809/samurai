@@ -1,14 +1,14 @@
 # Ball Detection and SAMURAI Tracking Pipeline
 
-A robust and efficient pipeline that combines YOLO ball detection with SAMURAI single-object tracking to create a comprehensive ball tracking system.
+This pipeline integrates YOLO ball detection with SAMURAI tracking to create a robust ball tracking system that can handle detection failures gracefully.
 
 ## Overview
 
-This pipeline implements an intelligent integration of two powerful computer vision models:
+The pipeline implements the logic described in `pipeline.md`:
 
 1. **YOLO Detection**: Detects balls in each frame using a trained YOLO model
 2. **SAMURAI Tracking**: Uses SAMURAI for precise object tracking and segmentation
-3. **Smart Integration**: Combines both systems to handle detection failures gracefully
+3. **Smart Integration**: Combines both systems to handle detection failures and maintain tracking continuity
 
 ## Architecture
 
@@ -26,7 +26,6 @@ Video Input → YOLO Detection → SAMURAI Tracking → Rendered Output
 - **Graceful Degradation**: Continues tracking even when YOLO detection fails
 - **Real-time Visualization**: Shows bounding boxes, confidence scores, tracking masks, and status information
 - **Memory Efficient**: Processes frames sequentially with periodic cleanup
-- **Direct Integration**: No subprocess overhead, direct Python imports
 
 ## Requirements
 
@@ -47,16 +46,15 @@ Video Input → YOLO Detection → SAMURAI Tracking → Rendered Output
    # Should show: base and ultralytics
    ```
 
-2. **Install ultralytics in base environment**:
-   ```bash
-   conda activate base
-   pip install ultralytics
-   ```
-
-3. **Verify model files exist**:
+2. **Verify model files exist**:
    ```bash
    ls -la /root/ultralytics/runs/detect/train9/weights/best.pt
    ls -la sam2.1_hiera_large.pt
+   ```
+
+3. **Test the setup**:
+   ```bash
+   python test_pipeline.py
    ```
 
 ## Usage
@@ -64,7 +62,7 @@ Video Input → YOLO Detection → SAMURAI Tracking → Rendered Output
 ### Basic Usage
 
 ```bash
-python ball_tracking_pipeline_simple.py \
+python ball_tracking_pipeline_v2.py \
     --video input_video.mp4 \
     --output output_video.mp4 \
     --confidence 0.5
@@ -73,7 +71,7 @@ python ball_tracking_pipeline_simple.py \
 ### Advanced Usage
 
 ```bash
-python ball_tracking_pipeline_simple.py \
+python ball_tracking_pipeline_v2.py \
     --video input_video.mp4 \
     --output output_video.mp4 \
     --yolo-model /path/to/custom/yolo.pt \
@@ -81,6 +79,15 @@ python ball_tracking_pipeline_simple.py \
     --confidence 0.7 \
     --device cuda:0
 ```
+
+### Command Line Arguments
+
+- `--video`: Input video file path (required)
+- `--output`: Output video file path (required)
+- `--yolo-model`: Path to YOLO model (default: `/root/ultralytics/runs/detect/train9/weights/best.pt`)
+- `--samurai-model`: Path to SAMURAI model (default: `sam2.1_hiera_large.pt`)
+- `--confidence`: YOLO confidence threshold (default: 0.5)
+- `--device`: Device for inference (default: `cuda:0`)
 
 ## Pipeline Logic
 
@@ -130,7 +137,7 @@ The pipeline provides detailed status information:
 
 - **Memory Usage**: SAMURAI models can be memory-intensive; ensure sufficient GPU memory
 - **Processing Speed**: YOLO detection + SAMURAI tracking per frame; expect 1-5 FPS depending on hardware
-- **Batch Processing**: YOLO processes entire video at once, then SAMURAI tracks frame-by-frame
+- **Batch Processing**: Consider processing videos in chunks for very long videos
 
 ## Troubleshooting
 
@@ -157,24 +164,40 @@ The pipeline provides detailed status information:
    - Try different output codecs: `mp4v`, `XVID`, `MJPG`
    - Ensure input video is in a supported format
 
-## File Structure
+### Debug Mode
 
+Enable verbose logging by modifying the pipeline script:
+
+```python
+# Add debug prints in _process_frame method
+print(f"Frame {frame_idx}: Detection={detection}, Tracking={self.is_tracking}")
 ```
-samurai/
-├── ball_tracking_pipeline_simple.py  # Main pipeline implementation
-├── samurai_demo.py                   # SAMURAI demo script
-├── pipeline.md                       # Original pipeline specification
-├── README.md                         # This file
-└── sam2/                            # SAMURAI model files
-    ├── configs/
-    └── sam2.1_hiera_large.pt
+
+## Testing
+
+Run the test suite to verify all components work:
+
+```bash
+python test_pipeline.py
 ```
+
+This will test:
+- YOLO environment availability
+- SAMURAI model initialization
+- Video I/O functionality
+
+## Future Improvements
+
+- **Multi-object Tracking**: Support for tracking multiple balls simultaneously
+- **Kalman Filtering**: Add motion prediction for better tracking stability
+- **Real-time Processing**: Optimize for live video streams
+- **Custom Visualization**: User-configurable overlay styles and information display
 
 ## Contributing
 
 When modifying the pipeline:
 
-1. Test with real video data
+1. Test with the provided test suite
 2. Maintain the existing API structure
 3. Add appropriate error handling and logging
 4. Update this documentation
